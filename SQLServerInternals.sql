@@ -667,3 +667,84 @@ select index_level, page_count, avg_page_space_used_in_percent, avg_fragmentatio
 from sys.dm_db_index_physical_stats(DB_ID(),OBJECT_ID(N'dbo.Positions'),1,null,'DETAILED')
 
 */
+
+/*
+
+update dbo.Positions set Address = N'Position address';
+
+select index_level, page_count, avg_page_space_used_in_percent, avg_fragmentation_in_percent
+from sys.dm_db_index_physical_stats(DB_ID(),OBJECT_ID(N'dbo.Positions'),1,null,'DETAILED')
+
+*/
+
+/*
+select avg(datalength(Address)) as [Avg Address Size] from dbo.Positions
+
+*/
+
+
+/*
+truncate table dbo.Positions
+go
+
+;with N1(C) as (select 0 union all select 0) -- 2 rows
+,N2(C) as (select 0 from N1 as T1 cross join N1 as T2) -- 4 rows
+,N3(C) as (select 0 from N2 as T1 cross join N2 as T2) -- 16 rows
+,N4(C) as (select 0 from N3 as T1 cross join N3 as T2) -- 256 rows
+,N5(C) as (select 0 from N4 as T1 cross join N4 as T2) -- 65,536 rows
+,IDs(ID) as (select row_number() over (order by (select NULL)) from N5)
+
+insert into dbo.Positions(DeviceId, ATime, Latitude, Longitude, Address)
+    select
+        ID % 100 /*DeviceId*/
+        ,dateadd(minute, -(ID % 657), getutcdate()) /*ATime*/
+        ,0 /*Latitude - just dummy value*/
+        ,0 /*Longitude - just dummy value*/
+        ,replicate(N' ',16) /*Address - adding string of 16 space characters*/
+    from IDs;
+
+--create unique clustered index IDX_Postitions_DeviceId_ATime ON dbo.Positions(DeviceId, ATime);
+
+update dbo.Positions set Address = N'Position address';
+
+select index_level, page_count, avg_page_space_used_in_percent, avg_fragmentation_in_percent
+from sys.dm_db_index_physical_stats(DB_ID(),OBJECT_ID(N'Positions'),1,null,'DETAILED')
+
+*/
+
+
+drop table dbo.Positions
+GO
+
+create table dbo.Positions
+(    
+	DeviceId int not null,
+	ATime datetime2(0) not null,
+    Latitude decimal(9,6) not null,
+    Longitude decimal(9,6) not null,
+    Address nvarchar(200) null,
+    Placeholder char(100) null,
+	Dummy varbinary(32)
+);
+
+;with N1(C) as (select 0 union all select 0) -- 2 rows
+,N2(C) as (select 0 from N1 as T1 cross join N1 as T2) -- 4 rows
+,N3(C) as (select 0 from N2 as T1 cross join N2 as T2) -- 16 rows
+,N4(C) as (select 0 from N3 as T1 cross join N3 as T2) -- 256 rows
+,N5(C) as (select 0 from N4 as T1 cross join N4 as T2) -- 65,536 rows
+,IDs(ID) as (select row_number() over (order by (select NULL)) from N5)
+insert into dbo.Positions(DeviceId, ATime, Latitude, Longitude, Dummy)
+    SELECT ID % 100 /*DeviceId*/
+        ,dateadd(minute, -(ID % 657), getutcdate()) /*ATime*/
+        ,0 /*Latitude - just dummy value*/
+        ,0 /*Longitude - just dummy value*/
+        ,convert(varbinary(32),replicate('0',32)) /* Reserving the space*/
+    from IDs;
+
+create unique clustered index IDX_Postitions_DeviceId_ATime
+on dbo.Positions(DeviceId, ATime);
+
+update dbo.Positions SET Address = N'Position address',Dummy = null;
+
+select index_level, page_count, avg_page_space_used_in_percent, avg_fragmentation_in_percent
+from sys.dm_db_index_physical_stats(DB_ID(),OBJECT_ID(N'Positions'),1,null,'DETAILED')
