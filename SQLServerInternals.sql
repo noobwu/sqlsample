@@ -522,6 +522,7 @@ set statistics time off
 
 */
 
+/*
 select
     s.stats_id as [Stat ID], sc.name + '.' + t.name as [Table], s.name as [Statistics]
     ,p.last_updated, p.rows, p.rows_sampled, p.modification_counter as [Mod Count]
@@ -534,3 +535,135 @@ from
         sys.dm_db_stats_properties(t.object_id,s.stats_id) p
 where
     sc.name = 'dbo' and t.name = 'Books';
+
+*/
+
+
+/*
+create table dbo.CETest
+(    
+  	ID int not null,
+    ADate date not null,
+    Placeholder char(10)
+);
+
+;with N1(C) as (select 0 union all select 0) -- 2 rows
+,N2(C) as (select 0 from N1 as T1 cross join N1 as T2) -- 4 rows
+,N3(C) as (select 0 from N2 as T1 cross join N2 as T2) -- 16 rows
+,N4(C) as (select 0 from N3 as T1 cross join N3 as T2) -- 256 rows
+,N5(C) as (select 0 from N4 as T1 cross join N4 as T2) -- 65,536 rows
+,IDs(ID) as (select row_number() over (order by (select null)) from N5)
+
+insert into dbo.CETest(ID,ADate)
+    select ID,dateadd(day,abs(checksum(newid())) % 365,'2016-06-01') from IDs;
+
+create unique clustered index IDX_CETest_ID on dbo.CETest(ID);
+create nonclustered index IDX_CETest_ADate on dbo.CETest(ADate);
+
+
+DBCC SHOW_STATISTICS('dbo.CETest', IDX_CETest_ADate)
+
+*/
+
+
+/*
+
+
+alter database SQLServerInternals set compatibility_level = 120 --数据库兼容级别(110:SQL Server 2012,120;SQL Server 2014,130:SQL Server 2016,140:SQL Server 2017,150:SQL Server 2019)
+GO
+
+--查询条件在直方图Key中的值
+select ID, ADate, Placeholder
+from dbo.CETest with (index=IDX_CETest_ADate)
+where ADate = '2016-06-07';
+
+
+
+DBCC SHOW_STATISTICS('dbo.CETest', IDX_CETest_ADate)
+
+--查询条件不在直方图Key中的值
+select ID, ADate, Placeholder
+from dbo.CETest with (index=IDX_CETest_ADate)
+where ADate = '2016-06-12';
+
+
+declare @D date = '2016-06-08';
+select ID, ADate, Placeholder
+from dbo.CETest with (index=IDX_CETest_ADate)
+where ADate = @D;
+
+*/
+
+
+/*
+create table dbo.PageSplitDemo
+(    
+    ID int not null,
+    Data varchar(8000) null
+);
+create unique clustered index IDX_PageSplitDemo_ID
+on dbo.PageSplitDemo(ID);
+
+;with N1(C) as (select 0 union all select 0) -- 2 rows
+,N2(C) as (select 0 from N1 as T1 cross join N1 as T2) -- 4 rows
+,N3(C) as (select 0 from N2 as T1 cross join N2 as T2) -- 16 rows
+,N4(C) as (select 0 from N3 as T1 cross join N3 as T2) -- 256 rows
+,N5(C) as (select 0 from N4 as T1 cross join N2 as T2) -- 1,024 rows
+,IDs(ID) as (select row_number() over (order by (select NULL)) from N5)
+
+insert into dbo.PageSplitDemo(ID)
+    select ID * 2 from Ids where ID <= 620
+
+select page_count, avg_page_space_used_in_percent
+from sys.dm_db_index_physical_stats(db_id(),object_id(N'dbo.PageSplitDemo'),1,null
+    ,'DETAILED');
+
+*/
+
+/*
+
+alter database SQLServerInternals set compatibility_level = 100 --数据库兼容级别(100:SQL Server 2008,110:SQL Server 2012,120;SQL Server 2014,130:SQL Server 2016,140:SQL Server 2017,150:SQL Server 2019)
+GO
+--DELETE FROM PageSplitDemo WHERE ID=101
+
+--多页拆分：在表中插入一条大行
+insert into dbo.PageSplitDemo(ID,Data) values(1,replicate('a',8000));
+
+select page_count, avg_page_space_used_in_percent
+from sys.dm_db_index_physical_stats(db_id(),object_id(N'dbo.PageSplitDemo'),1,null
+    ,'DETAILED');
+*/
+
+
+/*
+create table dbo.Positions
+(    DeviceId int not null,
+    ATime datetime2(0) not null,
+    Latitude decimal(9,6) not null,
+    Longitude decimal(9,6) not null,
+    Address nvarchar(200) null,
+    Placeholder char(100) null,
+);
+
+;with N1(C) as (select 0 union all select 0) -- 2 rows
+,N2(C) as (select 0 from N1 as T1 cross join N1 as T2) -- 4 rows
+,N3(C) as (select 0 from N2 as T1 cross join N2 as T2) -- 16 rows
+,N4(C) as (select 0 from N3 as T1 cross join N3 as T2) -- 256 rows
+,N5(C) as (select 0 from N4 as T1 cross join N4 as T2) -- 65,536 rows
+,IDs(ID) as (select row_number() over (order by (select NULL)) from N5)
+
+insert into dbo.Positions(DeviceId, ATime, Latitude, Longitude)
+    select
+        ID % 100 /*DeviceId*/
+        ,dateadd(minute, -(ID % 657), getutcdate()) /*ATime*/
+        ,0 /*Latitude - just dummy value*/
+        ,0 /*Longitude - just dummy value*/
+    from IDs;
+
+create unique clustered index IDX_Postitions_DeviceId_ATime
+on dbo.Positions(DeviceId, ATime);
+
+select index_level, page_count, avg_page_space_used_in_percent, avg_fragmentation_in_percent
+from sys.dm_db_index_physical_stats(DB_ID(),OBJECT_ID(N'dbo.Positions'),1,null,'DETAILED')
+
+*/
